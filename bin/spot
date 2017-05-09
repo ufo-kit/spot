@@ -10,12 +10,13 @@ def list_runners(args):
 
 
 def execute_runner(args):
-    from spot.client import Spot
-
     r = runner.load(args.runner)
     fact = r.execute(dict(args.parameters))
-    client = Spot()
-    client.submit_fact(r, fact)
+
+    if args.submit:
+        from spot.client import Spot
+        client = Spot()
+        client.submit_fact(r, fact)
 
 
 def submit(args):
@@ -52,6 +53,7 @@ def main():
     run_parser = command_parsers.add_parser('run', help="Execute a runner")
     run_parser.set_defaults(run=execute_runner)
 
+    run_parser.add_argument('--submit', action='store_true', default=False)
     run_parser.add_argument('runner', metavar='RUNNER', type=str)
     run_parser.add_argument('parameters', metavar='KEY=VAL', type=key_value_assignment, nargs='*')
 
