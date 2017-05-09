@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import hashlib
 import subprocess
 import shlex
 import datetime
@@ -60,6 +61,7 @@ class Runner(object):
     }
 
     def __init__(self, data):
+        self.uid = digest(data)
         self.version_command = data['version-command']
         self.expected = {}
         self.templates = data['run-commands']
@@ -144,7 +146,13 @@ def verify(data):
             raise LoadError("`{}' key not specified".format(key))
 
 
-def load(name):
+def digest(data):
+    s = data['version-command'] + data['version'] + \
+        '+'.join(data['run-commands']) + '+'.join(data['parameters'])
+    return hashlib.sha256(s).hexdigest()
+
+
+def load_data(name):
     try:
         data = _read_recursively(name)
     except IOError as e:
@@ -155,4 +163,8 @@ def load(name):
     except LoadError as e:
         raise LoadError("could not load `{}': {}".format(name, e))
 
-    return Runner(data)
+    return data
+
+
+def load(name):
+    return Runner(load_data(name))

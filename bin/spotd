@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+import collections
+from spot.runner import verify, digest
+from flask import Flask, request
+from flask_restful import Api, Resource
+
+
+app = Flask(__name__)
+api = Api(app)
+
+workflows = {}
+facts = collections.defaultdict(list)
+
+
+class WorkflowList(Resource):
+    def get(self):
+        return workflows
+
+    def post(self):
+        data = request.get_json()
+        verify(data)
+        uid = digest(data)
+        workflows[uid] = data
+        return {}, 201, {'Location': '/api/workflows/{}'.format(uid)}
+
+
+class Workflow(Resource):
+    def get(self, uid):
+        if uid in workflows:
+            return workflows[uid]
+
+        return 404
+
+
+class FactList(Resource):
+    def get(self, uid):
+        if uid in facts:
+            return facts[uid]
+
+        return 404
+
+    def post(self, uid):
+        facts[uid].append(request.get_json())
+        return 201
+
+
+api.add_resource(WorkflowList, '/api/workflows')
+api.add_resource(Workflow, '/api/workflows/<string:uid>')
+api.add_resource(FactList, '/api/workflows/<string:uid>/facts')
+
+
+if __name__ == '__main__':
+    app.run(debug=True)

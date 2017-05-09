@@ -20,7 +20,9 @@ setup(
     scripts=['bin/spot'],
     exclude_package_data={'': ['README.rst']},
     install_requires=[
-        'jinja2'
+        'jinja2',
+        'requests',
+        'marshmallow',
     ],
     description="Spot",
 )
