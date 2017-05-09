@@ -1,0 +1,4 @@
+*.pyc
+build/*
+dist/*
+spot.egg-info/*

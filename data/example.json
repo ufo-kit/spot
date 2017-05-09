@@ -1,0 +1,11 @@
+{
+    "extends": "ufo",
+    "version": "0.1",
+    "parameters": [
+        "path:path",
+        "center:float"
+    ],
+    "run-commands": [
+        "ufo-launch read path={{ path }} ! fft ! filter ! ifft ! backproject axis-pos={{ center }} ! write filename=slice-%05i.tif"
+    ]
+}

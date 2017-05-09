@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+import argparse
+from spot import __version__, runner
+
+
+def list_runners(args):
+    for r in runner.list_all():
+        print(r)
+
+
+def execute_runner(args):
+    r = runner.load(args.runner)
+    result = r.execute(dict(args.parameters))
+    print result.to_dict()
+
+
+def key_value_assignment(arg):
+    t = tuple(arg.split('='))
+
+    if len(t) != 2:
+        raise argparse.ArgumentTypeError("`{}' has no value".format(t[0]))
+
+    if t[1] == '':
+        raise argparse.ArgumentTypeError("Value of `{}' is empty".format(t[0]))
+
+    return t
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--version',
+                        action='version',
+                        version='spot v{}'.format(__version__))
+
+    command_parsers = parser.add_subparsers(title="Commands")
+
+    list_parser = command_parsers.add_parser('list', help="List all runners")
+    list_parser.set_defaults(run=list_runners)
+
+    run_parser = command_parsers.add_parser('run', help="Execute a runner")
+    run_parser.set_defaults(run=execute_runner)
+
+    run_parser.add_argument('runner', metavar='RUNNER', type=str)
+    run_parser.add_argument('parameters', metavar='KEY=VAL', type=key_value_assignment, nargs='*')
+
+    args = parser.parse_args()
+
+    try:
+        args.run(args)
+    except (runner.LoadError, runner.ExecutionError) as e:
+        print("Error: {}".format(e))
+
+
+if __name__ == '__main__':
+    main()
