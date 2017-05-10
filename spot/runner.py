@@ -6,6 +6,7 @@ import subprocess
 import shlex
 import datetime
 import time
+import itertools
 import jinja2
 
 
@@ -26,17 +27,41 @@ class Converter(object):
         raise NotImplementedError
 
 
-class StringConverter(object):
-    def convert(self, value):
-        return value
-
-
 class SimpleConverter(Converter):
     def __init__(self, t):
         self._type = t
 
     def convert(self, value):
-        return self._type(value)
+        try:
+            return [self._type(value)]
+        except ValueError:
+            raise ExecutionError("Cannot convert `{}' to type {}".format(value, str(self._type)))
+
+
+class RangeConverter(SimpleConverter):
+    def __init__(self, t):
+        super(RangeConverter, self).__init__(t)
+
+    def convert(self, value):
+        import numpy as np
+
+        if ':' not in value:
+            return super(RangeConverter, self).convert(value)
+
+        parts = value.split(':')
+
+        if len(parts) != 3:
+            raise ExecutionError("Interval must be start:stop:num")
+
+        start = super(RangeConverter, self).convert(parts[0])
+        end = super(RangeConverter, self).convert(parts[1])
+
+        try:
+            num = int(parts[2])
+        except ValueError:
+            raise ExecutionError("Interval number must be of type int")
+
+        return list(np.linspace(start, end, num))
 
 
 class Fact(object):
@@ -54,10 +79,10 @@ class Fact(object):
 
 class Runner(object):
     converters = {
-        'str': StringConverter(),
+        'str': SimpleConverter(str),
         'int': SimpleConverter(int),
-        'float': SimpleConverter(float),
-        'path': StringConverter()
+        'float': RangeConverter(float),
+        'path': SimpleConverter(str)
     }
 
     def __init__(self, data):
@@ -103,31 +128,32 @@ class Runner(object):
         if superflous:
             raise ExecutionError("don't know {}".format(", ".join(backtickify(superflous))))
 
-        converted = {}
+        converted = {k: self.expected[k].convert(v) for k, v in parameters.items()}
 
-        try:
-            for k, v in parameters.items():
-                converted[k] = self.expected[k].convert(v)
-        except ValueError as e:
-            raise ExecutionError("Wrong parameter type for `{}`: {}".format(k, str(e)))
+        def fixed_parameters(parameters):
+            for elem in itertools.product(*parameters.values()):
+                yield dict(zip(parameters.keys(), elem))
 
-        fact = Fact(self.version)
+        def execute(fixed):
+            fact = Fact(self.version)
 
-        for template in self.templates:
-            command = jinja2.Template(template).render(**converted)
+            for template in self.templates:
+                command = jinja2.Template(template).render(**fixed)
 
-            start = time.time()
-            proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output, error = proc.communicate()
-            success = proc.returncode == 0
+                start = time.time()
+                proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                output, error = proc.communicate()
+                success = proc.returncode == 0
 
-            if not success:
-                raise ExecutionError("Command failed: {}".format(error.strip()))
+                if not success:
+                    raise ExecutionError("Command failed: {}".format(error.strip()))
 
-            elapsed = time.time() - start
-            fact.append(command, elapsed, success)
+                elapsed = time.time() - start
+                fact.append(command, elapsed, success)
 
-        return fact
+            return fact
+
+        return [execute(fixed).to_dict() for fixed in fixed_parameters(converted)]
 
 
 def list_all():
