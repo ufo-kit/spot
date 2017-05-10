@@ -11,5 +11,5 @@ class Spot(object):
     def submit_runner(self, data):
         r = requests.post(self.url('api/workflows'), json=data)
 
-    def submit_fact(self, runner, fact):
-        r = requests.post(self.url('api/workflows', runner.uid, 'facts'), json=fact.to_dict())
+    def submit_facts(self, runner, facts):
+        r = requests.post(self.url('api/workflows', runner.uid, 'facts'), json=facts)

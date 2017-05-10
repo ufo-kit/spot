@@ -41,7 +41,7 @@ class FactList(Resource):
         return 404
 
     def post(self, uid):
-        facts[uid].append(request.get_json())
+        facts[uid].extend(request.get_json())
         return 201
 
 

@@ -11,12 +11,12 @@ def list_runners(args):
 
 def execute_runner(args):
     r = runner.load(args.runner)
-    fact = r.execute(dict(args.parameters))
+    facts = r.execute(dict(args.parameters))
 
     if args.submit:
         from spot.client import Spot
         client = Spot()
-        client.submit_fact(r, fact)
+        client.submit_facts(r, facts)
 
 
 def submit(args):
