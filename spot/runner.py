@@ -119,6 +119,11 @@ class Runner(object):
             start = time.time()
             proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             output, error = proc.communicate()
+            success = proc.returncode == 0
+
+            if not success:
+                raise ExecutionError("Command failed: {}".format(error.strip()))
+
             elapsed = time.time() - start
             fact.append(command, elapsed, success)
 
