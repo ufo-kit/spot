@@ -39,7 +39,7 @@ class SimpleConverter(Converter):
         return self._type(value)
 
 
-class Result(object):
+class Fact(object):
     def __init__(self, version):
         self.version = version
         self.start = str(datetime.datetime.now())
@@ -111,7 +111,7 @@ class Runner(object):
         except ValueError as e:
             raise ExecutionError("Wrong parameter type for `{}`: {}".format(k, str(e)))
 
-        result = Result(self.version)
+        fact = Fact(self.version)
 
         for template in self.templates:
             command = jinja2.Template(template).render(**converted)
@@ -120,9 +120,9 @@ class Runner(object):
             proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             output, error = proc.communicate()
             elapsed = time.time() - start
-            result.append(command, elapsed, proc.returncode == 0)
+            fact.append(command, elapsed, success)
 
-        return result
+        return fact
 
 
 def list_all():
