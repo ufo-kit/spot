@@ -65,13 +65,14 @@ class RangeConverter(SimpleConverter):
 
 
 class Fact(object):
-    def __init__(self, version):
+    def __init__(self, runner_uid, version):
+        self.runner_uid = runner_uid
         self.version = version
         self.start = str(datetime.datetime.now())
         self.steps = []
 
     def append(self, command, time, success):
-        self.steps.append(dict(command=command, time=time, success=success))
+        self.steps.append(dict(runner=self.runner_uid, command=command, time=time, success=success))
 
     def to_dict(self):
         return dict(start=self.start, steps=self.steps)
@@ -135,7 +136,7 @@ class Runner(object):
                 yield dict(zip(parameters.keys(), elem))
 
         def execute(fixed):
-            fact = Fact(self.version)
+            fact = Fact(self.uid, self.version)
 
             for template in self.templates:
                 command = jinja2.Template(template).render(**fixed)
