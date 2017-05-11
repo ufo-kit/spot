@@ -22,9 +22,10 @@ def execute_runner(args):
 def submit(args):
     from spot.client import Spot
 
-    data = runner.load_data(args.runner)
+    result = runner.load(args.runner)
+    schema = runner.RunnerSchema()
     client = Spot()
-    client.submit_runner(data)
+    client.submit_runner(schema.dumps(result).data)
 
 
 def key_value_assignment(arg):

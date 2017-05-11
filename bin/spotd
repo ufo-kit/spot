@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import collections
-from spot.runner import verify, digest
+from spot.runner import FactSchema, RunnerSchema
 from flask import Flask, request
 from flask_restful import Api, Resource
 
@@ -19,10 +19,15 @@ class WorkflowList(Resource):
 
     def post(self):
         data = request.get_json()
-        verify(data)
-        uid = digest(data)
-        workflows[uid] = data
-        return {}, 201, {'Location': '/api/workflows/{}'.format(uid)}
+        schema = RunnerSchema()
+        result = schema.loads(data)
+
+        if result.errors:
+            return 400
+
+        runner = result.data
+        workflows[runner.uid] = data
+        return {}, 201, {'Location': '/api/workflows/{}'.format(runner.uid)}
 
 
 class Workflow(Resource):
@@ -41,7 +46,11 @@ class FactList(Resource):
         return 404
 
     def post(self, uid):
-        facts[uid].extend(request.get_json())
+        for data in request.get_json():
+            schema = FactSchema()
+            fact = schema.load(data)
+            facts[uid].append(data)
+
         return 201
 
 

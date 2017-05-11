@@ -8,6 +8,8 @@ import datetime
 import time
 import itertools
 import jinja2
+from marshmallow import Schema, fields, post_load
+from marshmallow.exceptions import ValidationError
 
 
 DATA_HOME = os.environ.get('XDG_DATA_HOME', os.path.expanduser('~/.local/share'))
@@ -64,6 +66,20 @@ class RangeConverter(SimpleConverter):
         return list(np.linspace(start, end, num))
 
 
+class FactSchema(Schema):
+    runner_uid = fields.Str(required=True)
+    version = fields.Str(required=True)
+    start = fields.Str(required=True)
+    steps = fields.List(fields.Str(), required=True)
+
+    @post_load
+    def make(self, data):
+        fact = Fact(data['runner_uid'], data['version'])
+        fact.start = data['start']
+        fact.steps = data['start']
+        return fact
+
+
 class Fact(object):
     def __init__(self, runner_uid, version):
         self.runner_uid = runner_uid
@@ -78,7 +94,7 @@ class Fact(object):
         return dict(start=self.start, steps=self.steps)
 
 
-class Runner(object):
+class ParameterField(fields.Field):
     converters = {
         'str': SimpleConverter(str),
         'int': SimpleConverter(int),
@@ -86,20 +102,48 @@ class Runner(object):
         'path': SimpleConverter(str)
     }
 
-    def __init__(self, data):
-        self.uid = digest(data)
-        self.version_command = data['version-command']
-        self.expected = {}
-        self.templates = data['run-commands']
+    def _serialize(self, value, attr, obj):
+        return '{}:{}'.format(value[0], value[1])
 
-        for description in data['parameters']:
-            name, type_name = description.split(':')
+    def _deserialize(self, value, attr, data):
+        try:
+            name, type_name = value.split(':')
+        except ValueError as e:
+            raise ValidationError("Wrong parameter specification of `{}'".format(value))
 
-            if type_name in self.converters:
-                self.expected[name] = self.converters[type_name]
+        if not type_name in self.converters:
+            raise ValidationError("No type conversion for `{}' found".format(type_name))
+
+        return (name, type_name, self.converters[type_name])
+
+
+class RunnerSchema(Schema):
+    version = fields.Str(required=True)
+    version_command = fields.Str(load_from='version-command', dump_to='version-command', required=True)
+    parameters = fields.List(ParameterField, required=True)
+    run_commands = fields.List(fields.Str(), load_from='run-commands', dump_to='run-commands', required=True)
+
+    @post_load
+    def make(self, data):
+        return Runner(data['version'], data['version_command'], data['parameters'], data['run_commands'])
+
+
+class Runner(object):
+    def __init__(self, version, version_command, parameters, run_commands):
+        self.version = version
+        self.version_command = version_command
+        self.parameters = parameters
+        self.run_commands = run_commands
 
     @property
-    def version(self):
+    def uid(self):
+        s = self.version_command + '&' + self.version + \
+                '&'.join(self.run_commands) + \
+                '&'.join(x + '&' + y for x, y, _ in self.parameters)
+        return hashlib.sha256(s).hexdigest()
+
+    @property
+    def command_version(self):
         """Return the version of the used executable."""
         return subprocess.check_output(self.version_command, shell=True).strip()
 
@@ -116,7 +160,8 @@ class Runner(object):
         def backtickify(l):
             return ("`{}`".format(x) for x in l)
 
-        expected_keys = set(self.expected.keys())
+        expected = dict((x, y) for x, _, y in self.parameters)
+        expected_keys = set(expected.keys())
         provided_keys = set(parameters.keys())
 
         not_provided = expected_keys - provided_keys
@@ -129,7 +174,7 @@ class Runner(object):
         if superflous:
             raise ExecutionError("don't know {}".format(", ".join(backtickify(superflous))))
 
-        converted = {k: self.expected[k].convert(v) for k, v in parameters.items()}
+        converted = {k: expected[k].convert(v) for k, v in parameters.items()}
 
         def fixed_parameters(parameters):
             for elem in itertools.product(*parameters.values()):
@@ -138,7 +183,7 @@ class Runner(object):
         def execute(fixed):
             fact = Fact(self.uid, self.version)
 
-            for template in self.templates:
+            for template in self.run_commands:
                 command = jinja2.Template(template).render(**fixed)
 
                 start = time.time()
@@ -146,8 +191,8 @@ class Runner(object):
                 output, error = proc.communicate()
                 success = proc.returncode == 0
 
-                if not success:
-                    raise ExecutionError("Command failed: {}".format(error.strip()))
+                # if not success:
+                #     raise ExecutionError("Command failed: {}".format(error.strip()))
 
                 elapsed = time.time() - start
                 fact.append(command, elapsed, success)
@@ -172,31 +217,16 @@ def _read_recursively(name, version=None):
         return data
 
 
-def verify(data):
-    for key in ('version-command', 'run-commands', 'parameters', 'version'):
-        if not key in data:
-            raise LoadError("`{}' key not specified".format(key))
-
-
-def digest(data):
-    s = data['version-command'] + data['version'] + \
-        '+'.join(data['run-commands']) + '+'.join(data['parameters'])
-    return hashlib.sha256(s).hexdigest()
-
-
-def load_data(name):
+def load(name):
     try:
         data = _read_recursively(name)
     except IOError as e:
         raise LoadError("could not load `{}': {}".format(name, str(e)))
 
-    try:
-        verify(data)
-    except LoadError as e:
-        raise LoadError("could not load `{}': {}".format(name, e))
+    schema = RunnerSchema()
+    result = schema.load(data)
 
-    return data
+    for key, errors in result.errors.items():
+        raise LoadError("could not load `{}`: problem with `{}': {}".format(name, key, ' '.join(errors)))
 
-
-def load(name):
-    return Runner(load_data(name))
+    return result.data
