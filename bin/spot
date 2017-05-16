@@ -4,12 +4,12 @@ import argparse
 from spot import __version__, runner
 
 
-def list_runners(args):
+def list_command(args):
     for r in runner.list_all():
         print(r)
 
 
-def execute_runner(args):
+def run_command(args):
     r = runner.load(args.runner)
     facts = r.execute(dict(args.parameters))
 
@@ -19,7 +19,7 @@ def execute_runner(args):
         client.submit_facts(r, facts)
 
 
-def submit(args):
+def submit_command(args):
     from spot.client import Spot
 
     result = runner.load(args.runner)
@@ -49,17 +49,17 @@ def main():
     command_parsers = parser.add_subparsers(title="Commands")
 
     list_parser = command_parsers.add_parser('list', help="List all runners")
-    list_parser.set_defaults(run=list_runners)
+    list_parser.set_defaults(run=list_command)
 
     run_parser = command_parsers.add_parser('run', help="Execute a runner")
-    run_parser.set_defaults(run=execute_runner)
+    run_parser.set_defaults(run=run_command)
 
     run_parser.add_argument('--submit', action='store_true', default=False)
     run_parser.add_argument('runner', metavar='RUNNER', type=str)
     run_parser.add_argument('parameters', metavar='KEY=VAL', type=key_value_assignment, nargs='*')
 
     submit_parser = command_parsers.add_parser('submit', help="Submit data to server")
-    submit_parser.set_defaults(run=submit)
+    submit_parser.set_defaults(run=submit_command)
 
     submit_parser.add_argument('runner', metavar='RUNNER', type=str)
 
