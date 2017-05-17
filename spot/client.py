@@ -13,3 +13,7 @@ class Spot(object):
 
     def submit_facts(self, runner, facts):
         r = requests.post(self.url('api/workflows', runner.uid, 'facts'), json=facts)
+
+    def list_workflows(self):
+        r = requests.get(self.url('api/workflows'))
+        return r.json()

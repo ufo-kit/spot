@@ -64,21 +64,29 @@ Most commonly used spot commands are:
 
     def remote(self, argv):
         """Communicate with the remote server"""
+        from spot.client import Spot
 
         def submit(args):
-            from spot.client import Spot
-
             result = runner.load(args.runner)
             schema = runner.RunnerSchema()
             client = Spot()
             client.submit_runner(schema.dumps(result).data)
 
-        parser = argparse.ArgumentParser(description=self.remote.__doc__)
-        subcommand_parser = parser.add_subparsers(title="Remote commands")
+        def list(args):
+            client = Spot()
 
-        submit_parser = subcommand_parser.add_parser('submit', help="Submit data to server")
+            for key, data in client.list_workflows().items():
+                print("{}".format(key))
+
+        parser = argparse.ArgumentParser(description=self.remote.__doc__)
+        command_parser = parser.add_subparsers(title="Remote commands")
+
+        submit_parser = command_parser.add_parser('submit', help="Submit data to server")
         submit_parser.set_defaults(run=submit)
         submit_parser.add_argument('runner', metavar='RUNNER', type=str)
+
+        submit_parser = command_parser.add_parser('list', help="List existing workflows")
+        submit_parser.set_defaults(run=list)
 
         args = parser.parse_args(sys.argv[2:])
         args.run(args)
