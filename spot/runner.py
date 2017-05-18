@@ -118,6 +118,7 @@ class ParameterField(fields.Field):
 
 
 class RunnerSchema(Schema):
+    name = fields.Str(required=True)
     version = fields.Str(required=True)
     version_command = fields.Str(load_from='version-command', dump_to='version-command', required=True)
     parameters = fields.List(ParameterField, required=True)
@@ -125,11 +126,13 @@ class RunnerSchema(Schema):
 
     @post_load
     def make(self, data):
-        return Runner(data['version'], data['version_command'], data['parameters'], data['run_commands'])
+        return Runner(data['name'], data['version'], data['version_command'],
+                      data['parameters'], data['run_commands'])
 
 
 class Runner(object):
-    def __init__(self, version, version_command, parameters, run_commands):
+    def __init__(self, name, version, version_command, parameters, run_commands):
+        self.name = name
         self.version = version
         self.version_command = version_command
         self.parameters = parameters
@@ -137,7 +140,7 @@ class Runner(object):
 
     @property
     def uid(self):
-        s = self.version_command + '&' + self.version + \
+        s = self.name + '&' + self.version_command + '&' + self.version + \
                 '&'.join(self.run_commands) + \
                 '&'.join(x + '&' + y for x, y, _ in self.parameters)
         return hashlib.sha256(s).hexdigest()
