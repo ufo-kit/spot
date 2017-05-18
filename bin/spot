@@ -75,8 +75,8 @@ Most commonly used spot commands are:
         def list(args):
             client = Spot()
 
-            for key, data in client.list_workflows().items():
-                print("{}".format(key))
+            for key, runner in client.list_workflows().items():
+                print("{}  {}".format(key[:8], runner.name))
 
         parser = argparse.ArgumentParser(description=self.remote.__doc__)
         command_parser = parser.add_subparsers(title="Remote commands")

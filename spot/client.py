@@ -1,4 +1,5 @@
 import requests
+from runner import RunnerSchema
 
 
 class Spot(object):
@@ -16,4 +17,5 @@ class Spot(object):
 
     def list_workflows(self):
         r = requests.get(self.url('api/workflows'))
-        return r.json()
+        schema = RunnerSchema()
+        return {k: schema.load(v).data for k, v in r.json().items()}

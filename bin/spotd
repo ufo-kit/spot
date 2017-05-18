@@ -15,7 +15,8 @@ facts = collections.defaultdict(list)
 
 class WorkflowList(Resource):
     def get(self):
-        return workflows
+        schema = RunnerSchema()
+        return {k: schema.dump(v).data for k, v in workflows.items()}
 
     def post(self):
         data = request.get_json()
@@ -26,7 +27,7 @@ class WorkflowList(Resource):
             return 400
 
         runner = result.data
-        workflows[runner.uid] = data
+        workflows[runner.uid] = runner
         return {}, 201, {'Location': '/api/workflows/{}'.format(runner.uid)}
 
 
